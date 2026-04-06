@@ -95,6 +95,46 @@ button {
     border-radius: 15px;  
 }  
 
+.card button {  
+    margin-top: 10px;  
+    width: 100%;  
+    background: #38bdf8;  
+    color: black;  
+    font-weight: bold;  
+}  
+
+.card button.remove {  
+    background: #ff5555;  
+    color: white;  
+}  
+
+.preview-area {  
+    margin-top: 30px;  
+    padding: 20px;  
+    background: #111;  
+    border-radius: 15px;  
+}  
+
+.preview-box {  
+    background: #222;  
+    padding: 20px;  
+    border-radius: 15px;  
+    color: white;  
+}  
+
+.preview-image {  
+    max-width: 100%;  
+    border-radius: 10px;  
+    margin-top: 15px;  
+}  
+
+.preview-frame {  
+    width: 100%;  
+    min-height: 400px;  
+    border: none;  
+    margin-top: 15px;  
+}  
+
 .tag {  
     background: black;  
     color: white;  
@@ -154,18 +194,21 @@ footer{
 </div>  
 
 <div class="filters">  
-    <button onclick="filterData('all')" class="active">All</button>  
-    <button onclick="filterData('Quiz')">Quiz</button>  
-    <button onclick="filterData('Lab')">Lab</button>  
-    <button onclick="filterData('Exam')">Exam</button>  
+    <button onclick="filterData(event, 'all')" class="active">All</button>  
+    <button onclick="filterData(event, 'Quiz')">Quiz</button>  
+    <button onclick="filterData(event, 'Lab')">Lab</button>  
+    <button onclick="filterData(event, 'Exam')">Exam</button>  
 </div>  
 
 <div class="grid" id="list"></div>  
+
+<div id="previewArea" class="preview-area"></div>  
 
 </div>  
 
 <script>  
 let data = JSON.parse(localStorage.getItem("files")) || [];  
+let currentPreviewId = null;  
 
 function render(filter = "all") {  
     let list = document.getElementById("list");  
@@ -179,12 +222,55 @@ function render(filter = "all") {
                 <span class="tag">${item.type}</span>  
                 <h3>${item.name}</h3>  
                 <p>${item.date}</p>  
+                <button onclick="viewFile(${item.id})">View</button>  
+                <button class="remove" onclick="removeFile(${item.id})">Remove</button>  
             </div>  
         `;  
     });  
 
     updateStats();  
     updateChart();  
+}  
+
+function viewFile(id) {  
+    currentPreviewId = id;  
+    const item = data.find(file => file.id === id);  
+    const previewArea = document.getElementById('previewArea');  
+    if (!item) {  
+        previewArea.innerHTML = '<div class="preview-box"><p>File not found.</p></div>';  
+        return;  
+    }  
+
+    let previewContent = '';  
+    if (item.content && item.mime.startsWith('image/')) {  
+        previewContent = `<img src="${item.content}" alt="${item.name}" class="preview-image">`;  
+    } else if (item.content && item.mime === 'application/pdf') {  
+        previewContent = `<iframe src="${item.content}" class="preview-frame"></iframe>`;  
+    } else if (item.content && item.mime.startsWith('text/')) {  
+        previewContent = `<iframe src="${item.content}" class="preview-frame"></iframe>`;  
+    } else if (item.content) {  
+        previewContent = `<p>Preview not available for this file type.</p><p><a href="${item.content}" download="${item.name}">Download ${item.name}</a></p>`;  
+    } else {  
+        previewContent = '<p>No preview content available.</p>';  
+    }  
+
+    previewArea.innerHTML = `  
+        <div class="preview-box">  
+            <h3>${item.name}</h3>  
+            <p>Type: ${item.type} — ${item.mime}</p>  
+            ${previewContent}  
+        </div>  
+    `;  
+}  
+
+function removeFile(id) {  
+    data = data.filter(file => file.id !== id);  
+    localStorage.setItem("files", JSON.stringify(data));  
+    if (currentPreviewId === id) {  
+        currentPreviewId = null;  
+        document.getElementById('previewArea').innerHTML = '';  
+    }  
+    render();  
 }  
 
 function updateStats() {  
@@ -228,13 +314,11 @@ function updateChart() {
     const lab = data.filter(x => x.type==="Lab").length;  
     const exam = data.filter(x => x.type==="Exam").length;  
 
-    if (data.length > 0) {  
-        pieChart.data.datasets[0].data = [quiz, lab, exam];  
-        pieChart.update();  
-    }  
+    pieChart.data.datasets[0].data = [quiz, lab, exam];  
+    pieChart.update();  
 }  
 
-function filterData(type) {  
+function filterData(event, type) {  
     document.querySelectorAll(".filters button").forEach(btn => btn.classList.remove("active"));  
     event.target.classList.add("active");  
     render(type);  
